@@ -274,12 +274,18 @@ class FullyConnectedNet(object):
       # affine
       affine_out, affine_cache = affine_forward(input_v, self.params['W' + `layer_num`], self.params['b' + `layer_num`])
       relu_out, relu_cache = relu_forward(affine_out)
-      all_caches[layer_num] = (affine_cache, relu_cache)
-      input_v = relu_out
+      bat_cache = None
+      if self.use_batchnorm:
+        bat_out, bat_cache = batchnorm_forward(relu_out, 1, 0, self.bn_params[layer_num-1])
+        input_v = np.copy(bat_out)
+      else:
+        input_v = relu_out
+      all_caches[layer_num] = (affine_cache, bat_cache, relu_cache)
+
 
     # affine for softmax
-    affine_cache, relu_cache = all_caches[self.num_layers - 1]
-    scores, last_cache = affine_forward(relu_out, self.params['W' + `self.num_layers`], self.params['b' + `self.num_layers`])
+    affine_cache, bat_cache, relu_cache = all_caches[self.num_layers - 1]
+    scores, last_cache = affine_forward(input_v, self.params['W' + `self.num_layers`], self.params['b' + `self.num_layers`])
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -321,7 +327,11 @@ class FullyConnectedNet(object):
     for layer_num in range(1, self.num_layers)[-1::-1]:
       # print 'layer: ', layer_num
       # affine
-      affine_cache, relu_cache = all_caches[layer_num]
+      affine_cache, bat_cache, relu_cache = all_caches[layer_num]
+      if self.use_batchnorm:
+        dx, dgamm, dbeta = batchnorm_backward(dout, bat_cache)
+        dout = np.copy(dx)
+
       drelu = relu_backward(dout, relu_cache)
       dout, dW_layer, db_layer = affine_backward(drelu, affine_cache)
       # all_d[layer_num] = np.copy(dout)
