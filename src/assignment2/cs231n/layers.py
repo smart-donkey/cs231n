@@ -459,6 +459,38 @@ def conv_backward_naive(dout, cache):
   dw = np.zeros_like(w)
   db = np.zeros_like(b)
 
+  N, C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  h_p = 1 + (H + 2 * pad - HH) / stride
+  w_p = 1 + (W + 2 * pad - WW) / stride
+  out = np.zeros((N, F, h_p, w_p), dtype=float)
+
+  w_reshaped = np.reshape(w, (F, C * HH * WW))
+  dw_reshaped = np.zeros_like(w_reshaped)
+  x_pad = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode='constant', constant_values=0)
+  dx_pad = np.zeros_like(x_pad)
+  for i_i, i in enumerate(range(0, h_p * stride, stride)):
+    for j_j, j in enumerate(range(0, w_p * stride, stride)):
+      # slice one inputs for one stride
+      x_pad_reshaped = np.reshape(x_pad[:, :, i: i + HH, j: j + WW], (N, C * HH * WW))
+      dw_reshaped += np.dot(dout[:, :, i_i, j_j].T, x_pad_reshaped)
+      dx_piece = np.dot(dout[:, :, i_i, j_j], w_reshaped)
+      dx_piece_reshaped = dx_piece.reshape((N, C , HH , WW))
+      dx_pad[:, :, i:i + HH, j: j + WW] += dx_piece_reshaped
+
+  db = np.sum(dout, axis=(0, 2, 3))
+  dw = np.reshape(dw_reshaped, dw.shape)
+  print "N=%d, C=%d , H=%d , W=%d" % (N , C , H , W)
+  print "pad = %d" % (pad)
+  print "dx shape", dx.shape
+  print "dx pad shape", dx_pad.shape
+  # print "dx pad", dx_pad
+
+  dx = dx_pad[:,:,1:-1,1:-1]
+
+
 
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -485,7 +517,20 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  N, C, H, W = x.shape
+  pool_height = pool_param['pool_height']
+  pool_width = pool_param['pool_width']
+  stride = pool_param['stride']
+
+  HH = (H - pool_height) / stride + 1
+  WW = (W - pool_width) / stride + 1
+
+  out = np.zeros((N, C, HH, WW))
+  for i_i, i in enumerate(range(0, HH * stride, stride)):
+    for j_j, j in enumerate(range(0, WW * stride, stride)):
+      x_piece = x[:, :, i: i + pool_height, j: j + pool_width]
+      max_value = np.max(x_piece, axis=(2, 3))
+      out[:, :, i_i, j_j] = max_value
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -508,7 +553,46 @@ def max_pool_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  x, pool_param = cache
+  N, C, H, W = x.shape
+  pool_height = pool_param['pool_height']
+  pool_width = pool_param['pool_width']
+  stride = pool_param['stride']
+
+  HH = (H - pool_height) / stride + 1
+  WW = (W - pool_width) / stride + 1
+  print "HH, WW", HH, WW
+  print "stride", stride
+
+  dx = np.zeros(x.shape)
+  for i_i, i in enumerate(range(0, HH * stride, stride)):
+    for j_j, j in enumerate(range(0, WW * stride, stride)):
+      x_piece = x[:, :, i: i + pool_height, j: j + pool_width]
+      d0, d1, _, _ = x_piece.shape
+      max_value = np.max(x_piece, axis=(2, 3))
+      x_piece_masks = x_piece - np.reshape(max_value,(d0, d1, 1, 1))
+      x_piece_masks[x_piece_masks == 0] = 1
+      x_piece_masks[x_piece_masks < 0] = 0
+
+
+      # print "x_piece shape", x_piece.shape
+      dout_piece = dout[:, :, i_i, j_j]
+
+      # print "d0, d1", d0, d1
+      dout_piece = np.reshape(dout_piece, (d0, d1, 1, 1))
+      dx_piece = x_piece_masks * dout_piece
+      # print "dout shape shape", dout_piece.shape
+      # print "x_piece masks", x_piece_masks.shape
+      # print "dx_piece.shape", dx_piece.shape
+      # print "dx.shape", dx.shape
+
+      dx[:, :, i: i + pool_height, j: j + pool_width] += dx_piece
+      # print "i, j",i,j
+      # print "pool height, pool_width", pool_height, pool_width
+      # print "dout_piece shape:", dout_piece.shape
+      # print "masks.shape:", masks.shape
+      # dout_piece = dout_piece * masks
+  # dx = dout_piece
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
