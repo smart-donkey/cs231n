@@ -32,7 +32,16 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
   # hidden state and any values you need for the backward pass in the next_h   #
   # and cache variables respectively.                                          #
   ##############################################################################
-  pass
+  # prev_h.shape = N, H
+  # Wh.shape = H, H
+  # np.dot(prev_h, Wh) = N, H
+  # x.shape = N, D
+  # Wx.shape = D, H
+  # np.dot(x, Wx) = N, H
+  st = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+  next_h = np.tanh(st)
+  cache = (x, Wx, prev_h, Wh, next_h)
+
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -61,7 +70,19 @@ def rnn_step_backward(dnext_h, cache):
   # HINT: For the tanh function, you can compute the local derivative in terms #
   # of the output value from tanh.                                             #
   ##############################################################################
-  pass
+
+  # derivative tanh = 1 - tanh ** 2
+  # dnext_h.shape = N, H
+  # st.shape = N, H
+  x, Wx, prev_h, Wh, next_h = cache
+  # dst.shape = N, H
+  dtanh = dnext_h * (1 - next_h ** 2)
+  db = np.sum(dtanh, axis=0)
+  dx = np.dot(dtanh, Wx.T)
+  dWx = np.dot(x.T, dtanh)
+  dprev_h = np.dot(dtanh, Wh.T)
+  dWh = np.dot(prev_h.T, dtanh)
+
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -92,7 +113,15 @@ def rnn_forward(x, h0, Wx, Wh, b):
   # input data. You should use the rnn_step_forward function that you defined  #
   # above.                                                                     #
   ##############################################################################
-  pass
+  N, T, D = x.shape
+  prev_h = h0
+
+  for i in np.range(T):
+      next_h, cache = rnn_step_forward(x[:, i, :], prev_h, Wx, Wh, b)
+      np.concatenate(())
+
+
+
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
